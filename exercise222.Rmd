@@ -1,0 +1,178 @@
+---
+title: "exercise22222"
+output: html_document
+date: "2024-02-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Question1: Take a subset of the tweets data by “user_name” These names describe the name of the newspaper source of the Twitter account. Do we see different sentiment dynamics if we look only at different newspaper sources?
+
+library(academictwitteR)
+library(tidyverse)
+library(readr)
+library(stringr)
+library(tidytext)
+library(quanteda)
+library(textdata)
+```
+
+```{r}
+getwd()
+```
+
+```{r, eval = F}
+tweets  <- readRDS(gzcon(url("https://github.com/cjbarrie/CTA-ED/blob/main/data/sentanalysis/newstweets.rds?raw=true")))
+```
+
+```{r, eval = F}
+# Initial processing of tweet data, selecting specific columns and renaming them
+tidy_tweets <- tweets %>%
+  select(user_name, text, created_at) %>% # Select user name, text and create time column
+  rename(
+    newspaper = user_name, # Rename the username column to newspaper
+    tweet = text # Rename the text column to tweet
+  )
+```
+
+```{r, eval = F}
+# Filter out tweets from specific newspapers
+newspaper_group <- tidy_tweets %>%
+  filter(newspaper %in% c("The Sun", "Daily Mail U.K.", "Metro", "The Mirror", 
+                          "Evening Standard", "The Times", "The Telegraph", "The Guardian")) 
+```
+
+```{r, eval = F}
+# Data ready for NRC sentiment analysis
+nrc_prepare <- newspaper_group %>%
+  mutate(tweet_lower = tolower(tweet)) %>% # Convert tweets to lowercase
+  unnest_tokens(word, tweet_lower) %>% # Breaking tweets down into words
+  filter(str_detect(word, "[a-z]")) %>% # Words containing letters are retained
+  filter(!word %in% stop_words$word) # Remove Stop Words
+```
+
+```{r, eval = F}
+# Add a date column and convert created_at to date format
+nrc_prepare$date <- as.Date(nrc_prepare$created_at)
+```
+
+```{r, eval = F}
+# Sorting data and adding sequential numbering
+nrc_prepare <- nrc_prepare %>%
+  arrange(date) %>%
+  mutate(order = row_number())
+```
+
+```{r, eval = F}
+# Performs NRC sentiment analysis and calculates a sentiment score per thousand tweets
+nrc_analysis <- nrc_prepare %>%
+  inner_join(get_sentiments("nrc")) %>% # Intralinking with the NRC Sentiment Dictionary for Sentiment Labeling
+  count(newspaper, date, index = order %/% 1000, sentiment) %>% # Group every thousand tweets and count the number of each sentiment
+  spread(sentiment, n, fill = 0) %>% # Convert the sentiment distribution to wide format with missing values filled with 0
+  mutate(sentiment_score = positive - negative)
+```
+
+```{r, eval = F}
+# Graphing sentiment scores over time using ggplot2
+nrc_analysis_plot <- nrc_analysis %>%
+  ggplot(aes(x = date, y = sentiment_score, color = newspaper)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", alpha = 0.25) +
+  ylab("NRC Sentiment Score") +
+  theme_minimal()
+```
+
+```{r, eval = F}
+# Print Chart
+print(nrc_analysis_plot)
+```
+
+```{r}
+##Question2: Build your own (minimal) dictionary-based filter technique and plot the result
+library(kableExtra)
+library(tidyverse) 
+library(readr) 
+library(stringr) 
+library(tidytext)
+library(quanteda) 
+library(textdata)
+```
+
+```{r}
+library(academictwitteR)
+```
+
+```{r}
+getwd()
+```
+
+```{r, eval = F}
+tweets  <- readRDS(gzcon(url("https://github.com/cjbarrie/CTA-ED/blob/main/data/sentanalysis/newstweets.rds?raw=true")))
+```
+
+```{r, eval = F}
+head(tweets)
+colnames(tweets)
+```
+
+```{r, eval = F}
+tweets <- tweets %>%
+  select(user_username, text, created_at, user_name,
+         retweet_count, like_count, quote_count) %>%
+  rename(username = user_username,
+         newspaper = user_name,
+         tweet = text)
+```
+
+
+```{r, eval = F}
+tidy_tweets <- tweets %>% 
+  mutate(desc = tolower(tweet)) %>%
+  unnest_tokens(word, desc) %>%
+  filter(str_detect(word, "[a-z]"))
+```
+
+```{r, eval = F}
+tidy_tweets <- tidy_tweets %>%
+    filter(!word %in% stop_words$word)
+```
+
+```{r}
+get_sentiments("bing")
+```
+
+```{r, eval = F}
+
+bing_negative <- get_sentiments("bing") %>% 
+  filter(sentiment == "negative")
+
+tidy_tweets %>%
+  inner_join(bing_negative) %>%
+  count(word, sort = TRUE)
+```
+```{r, eval = F}
+tidy_tweets$date <- as.Date(tidy_tweets$created_at)
+
+tidy_tweets <- tidy_tweets %>%
+  arrange(date)
+
+tidy_tweets$order <- 1:nrow(tidy_tweets)
+
+```
+
+
+
+```{r, eval = F}
+tidy_tweets %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(date, index = order %/% 1000, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative) %>%
+  ggplot(aes(date, sentiment)) +
+  geom_point(alpha=0.5) +
+  geom_smooth(method= loess, alpha=0.25) +
+  ylab("bing sentiment")
+```
